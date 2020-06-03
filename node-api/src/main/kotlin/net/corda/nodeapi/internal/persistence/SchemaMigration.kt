@@ -222,8 +222,10 @@ class SchemaMigration(
         if (isFinanceAppWithLiquibaseNotMigrated) {
             preV4Baseline.addAll(listOf("migration/cash.changelog-init.xml",
                     "migration/cash.changelog-v1.xml",
+                    "migration/cash.changelog-v2.xml",
                     "migration/commercial-paper.changelog-init.xml",
-                    "migration/commercial-paper.changelog-v1.xml"))
+                    "migration/commercial-paper.changelog-v1.xml",
+                    "migration/commercial-paper.changelog-v2.xml"))
         }
 
         if (preV4Baseline.isNotEmpty()) {
