@@ -72,10 +72,12 @@ class InitialRegistration(val baseDirectory: Path, private val networkRootTrustS
                 HTTPNetworkRegistrationService(
                         requireNotNull(conf.networkServices),
                         versionInfo),
-                nodeRegistration).generateKeysAndRegister()
+                nodeRegistration).apply {
+            generateKeysAndRegister()
+            generateNodeIdentity()
+        }
 
         // Minimal changes to make registration tool create node identity.
-        // TODO: Move node identity generation logic from node to registration helper.
         startup.createNode(conf, versionInfo).generateAndSaveNodeInfo()
 
         println("Successfully registered Corda node with compatibility zone, node identity keys and certificates are stored in '${conf.certificatesDirectory}', it is advised to backup the private keys and certificates.")

@@ -176,9 +176,8 @@ open class MockServices private constructor(
 
             // Create a persistent identity service and add all the supplied identities.
             identityService.apply {
-                ourParty = initialIdentity.party
                 database = persistence
-                start(DEV_ROOT_CA.certificate, pkToIdCache = pkToIdCache)
+                start(DEV_ROOT_CA.certificate, initialIdentity.identity, pkToIdCache = pkToIdCache)
                 persistence.transaction { identityService.loadIdentities(moreIdentities + initialIdentity.identity) }
             }
 
@@ -190,7 +189,7 @@ open class MockServices private constructor(
                 val alias = "Extra key $index"
                 aliasKeyMap[alias] = keyPair
                 keyPair.public to alias
-            }.toSet()
+            }
             val identityAlias = "${initialIdentity.name} private key"
             aliasKeyMap[identityAlias] = initialIdentity.keyPair
             val aliasedIdentityKey = initialIdentity.publicKey to identityAlias
