@@ -423,9 +423,13 @@ abstract class AbstractNode<S>(val configuration: NodeConfiguration,
             if (cryptoService is BCCryptoService) {
                 cryptoService.resyncKeystore()
             }
+            updateDevKeyStores()
         }
         return validateKeyStores()
     }
+
+    // Additional keystore updates for mock network
+    protected open fun updateDevKeyStores() {}
 
     private fun quasarExcludePackages(nodeConfiguration: NodeConfiguration) {
         val quasarInstrumentor = Retransform.getInstrumentor()
@@ -440,7 +444,7 @@ abstract class AbstractNode<S>(val configuration: NodeConfiguration,
         log.info("Generating nodeInfo ...")
         val trustRoot = initKeyStores()
         startDatabase()
-        val (identity, notaryIdentity, keyPairs) = obtainIdentities()
+        val (identity, notaryIdentity, keyPairs) = obtainIdentities(trustRoot)
         identityService.start(trustRoot, identity, pkToIdCache = pkToIdCache)
         return database.use {
             it.transaction {
@@ -494,8 +498,7 @@ abstract class AbstractNode<S>(val configuration: NodeConfiguration,
         networkMapCache.start(netParams.notaries)
 
         startDatabase()
-        val (identity, myNotaryIdentity, keyPairs) = obtainIdentities()
-        X509Utilities.validateCertPath(trustRoot, identity.certPath)
+        val (identity, myNotaryIdentity, keyPairs) = obtainIdentities(trustRoot)
 
         identityService.start(trustRoot, identity, netParams.notaries.map { it.identity }, pkToIdCache)
 
@@ -998,8 +1001,8 @@ abstract class AbstractNode<S>(val configuration: NodeConfiguration,
     /**
      * Loads the node's legal identity, notary service identity (if set) and associated keys and aliases.
      */
-    private fun obtainIdentities(): Triple<PartyAndCertificate, PartyAndCertificate?, Set<KeyAndAlias>> {
-        val (identity, identityKeyPairs) = obtainIdentity()
+    private fun obtainIdentities(trustRoot: X509Certificate): Triple<PartyAndCertificate, PartyAndCertificate?, Set<KeyAndAlias>> {
+        val (identity, identityKeyPairs) = obtainIdentity(trustRoot)
         val keyPairs = identityKeyPairs.toMutableSet()
         val myNotaryIdentity = configuration.notary?.let {
             if (it.serviceLegalName != null) {
@@ -1033,7 +1036,7 @@ abstract class AbstractNode<S>(val configuration: NodeConfiguration,
      * If legal identity certificate has been renewed, keystore may contain old entries stored with dummy self-signed certificates.
      * In this case we also return public keys and aliases for old entries, so they can be used by [KeyManagementService] for signing.
      */
-    private fun obtainIdentity(): Pair<PartyAndCertificate, Set<KeyAndAlias>> {
+    private fun obtainIdentity(trustRoot: X509Certificate): Pair<PartyAndCertificate, Set<KeyAndAlias>> {
         val signingCertificateStore = configuration.signingCertificateStore.get()
         val legalName = configuration.myLegalName
 
@@ -1075,6 +1078,7 @@ abstract class AbstractNode<S>(val configuration: NodeConfiguration,
         check(certificates.first() == x509Cert) {
             "Certificates from key store do not line up!"
         }
+        check(certificates.last() == trustRoot) { "Node identity certificate must chain to the trusted root." }
 
         val subject = CordaX500Name.build(certificates.first().subjectX500Principal)
         if (subject != legalName) {
@@ -1082,6 +1086,7 @@ abstract class AbstractNode<S>(val configuration: NodeConfiguration,
         }
 
         val identity = PartyAndCertificate(X509Utilities.buildCertPath(certificates))
+        X509Utilities.validateCertPath(trustRoot, identity.certPath)
         val keyPairs = setOf(loadIdentityKey(legalIdentityPrivateKeyAlias, "node identity")) +
                 rotatedIdentities.map { loadIdentityKey(it, "previous node identity") }
         return identity to keyPairs
@@ -1141,8 +1146,6 @@ abstract class AbstractNode<S>(val configuration: NodeConfiguration,
         log.info("Loaded $description key: ${key.toStringShort()}, alias: $alias")
         return KeyAndAlias(key, alias)
     }
-
-    protected open fun generateKeyPair(alias: String) = cryptoService.generateKeyPair(alias, cryptoService.defaultIdentitySignatureScheme())
 
     protected open fun makeVaultService(keyManagementService: KeyManagementService,
                                         services: ServicesForResolution,

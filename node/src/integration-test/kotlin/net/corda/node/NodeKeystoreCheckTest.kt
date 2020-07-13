@@ -10,6 +10,7 @@ import net.corda.testing.core.ALICE_NAME
 import net.corda.testing.driver.DriverParameters
 import net.corda.testing.driver.driver
 import net.corda.coretesting.internal.stubs.CertificateStoreStubs
+import net.corda.nodeapi.internal.storeLegalIdentity
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.Test
 import javax.security.auth.x500.X500Principal
@@ -53,10 +54,11 @@ class NodeKeystoreCheckTest {
                 val badNodeCACert = X509Utilities.createCertificate(CertificateType.NODE_CA, badRoot, badRootKeyPair, ALICE_NAME.x500Principal, nodeCA.keyPair.public)
                 setPrivateKey(X509Utilities.CORDA_CLIENT_CA, nodeCA.keyPair.private, listOf(badNodeCACert, badRoot), signingCertStore.entryPassword)
             }
+            signingCertStore.get().storeLegalIdentity(X509Utilities.NODE_IDENTITY_KEY_ALIAS)
 
             assertThatThrownBy {
                 startNode(providedName = ALICE_NAME, customOverrides = mapOf("devMode" to false)).getOrThrow()
-            }.hasMessage("Client CA certificate must chain to the trusted root.")
+            }.hasMessage("Node identity certificate must chain to the trusted root.")
         }
     }
 }
