@@ -4,7 +4,6 @@ import com.nhaarman.mockito_kotlin.doReturn
 import com.nhaarman.mockito_kotlin.whenever
 import net.corda.common.configuration.parsing.internal.ConfigurationWithOptions
 import net.corda.core.DoNotImplement
-import net.corda.core.crypto.Crypto
 import net.corda.core.crypto.SecureHash
 import net.corda.core.crypto.random63BitValue
 import net.corda.core.flows.FlowLogic
@@ -54,8 +53,6 @@ import net.corda.testing.common.internal.testNetworkParameters
 import net.corda.coretesting.internal.rigorousMock
 import net.corda.coretesting.internal.stubs.CertificateStoreStubs
 import net.corda.coretesting.internal.testThreadFactory
-import net.corda.nodeapi.internal.crypto.X509Utilities
-import net.corda.nodeapi.internal.storeLegalIdentity
 import net.corda.testing.node.*
 import net.corda.testing.node.MockServices.Companion.makeTestDataSourceProperties
 import org.apache.activemq.artemis.utils.ReusableLatch
@@ -395,13 +392,11 @@ open class InternalMockNetwork(cordappPackages: List<String> = emptyList(),
         }
 
         // This is not thread safe, but node construction is done on a single thread, so that should always be fine
-        override fun updateDevKeyStores() {
+        override fun configureWithDevSSLCertificate() {
             require(cryptoService is BCCryptoService) { "MockNode supports BCCryptoService only, but it is ${cryptoService.javaClass.name}" }
             counter = counter.add(BigInteger.ONE)
             // The StartedMockNode specifically uses EdDSA keys as they are fixed and stored in json files for some tests (e.g IRSSimulation).
-            val keyPair = Crypto.deriveKeyPairFromEntropy(Crypto.EDDSA_ED25519_SHA512, counter)
-            (cryptoService as BCCryptoService).certificateStore.storeLegalIdentity(X509Utilities.NODE_IDENTITY_KEY_ALIAS, keyPair)
-            cryptoService.resyncKeystore()
+            configuration.configureWithDevSSLCertificate(cryptoService, counter)
         }
 
         // NodeInfo requires a non-empty addresses list and so we give it a dummy value for mock nodes.

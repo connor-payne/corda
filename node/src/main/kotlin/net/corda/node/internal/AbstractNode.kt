@@ -417,19 +417,19 @@ abstract class AbstractNode<S>(val configuration: NodeConfiguration,
 
     private fun initKeyStores(): X509Certificate {
         if (configuration.devMode) {
-            configuration.configureWithDevSSLCertificate(cryptoService)
+            configureWithDevSSLCertificate()
             // configureWithDevSSLCertificate is a devMode process that writes directly to keystore files, so
             // we should re-synchronise BCCryptoService with the updated keystore file.
             if (cryptoService is BCCryptoService) {
                 cryptoService.resyncKeystore()
             }
-            updateDevKeyStores()
         }
         return validateKeyStores()
     }
 
-    // Additional keystore updates for mock network
-    protected open fun updateDevKeyStores() {}
+    protected open fun configureWithDevSSLCertificate() {
+        configuration.configureWithDevSSLCertificate(cryptoService)
+    }
 
     private fun quasarExcludePackages(nodeConfiguration: NodeConfiguration) {
         val quasarInstrumentor = Retransform.getInstrumentor()
