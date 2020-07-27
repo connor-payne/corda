@@ -15,6 +15,7 @@ import net.corda.core.serialization.SerializationWhitelist
 import net.corda.core.serialization.serialize
 import net.corda.core.transactions.LedgerTransaction
 import net.corda.djvm.SandboxConfiguration
+import net.corda.djvm.SandboxRuntimeContext
 import net.corda.djvm.execution.ExecutionSummary
 import net.corda.djvm.execution.IsolatedTask
 import net.corda.djvm.execution.SandboxException
@@ -22,13 +23,15 @@ import net.corda.djvm.messages.Message
 import net.corda.djvm.rewiring.SandboxClassLoader
 import net.corda.djvm.source.ClassSource
 import net.corda.node.djvm.LtxFactory
+import java.util.concurrent.BlockingQueue
 import java.util.function.Function
 import kotlin.collections.LinkedHashSet
 
 class DeterministicVerifier(
     ltx: LedgerTransaction,
     transactionClassLoader: ClassLoader,
-    private val sandboxConfiguration: SandboxConfiguration
+    private val sandboxContext: SandboxRuntimeContext,
+    private val contexts: BlockingQueue<SandboxRuntimeContext>
 ) : Verifier(ltx, transactionClassLoader) {
     /**
      * Read the whitelisted classes without using the [java.util.ServiceLoader] mechanism
@@ -37,7 +40,7 @@ class DeterministicVerifier(
     private fun getSerializationWhitelistNames(classLoader: ClassLoader): Set<String> {
         return classLoader.getResources("META-INF/services/${SerializationWhitelist::class.java.name}").asSequence()
             .flatMapTo(LinkedHashSet()) { url ->
-                url.openStream().bufferedReader().useLines { lines ->
+                url.openStream().reader().useLines { lines ->
                     // Parse file format, as documented for java.util.ServiceLoader:
                     // - Remove everything after comment character '#'.
                     // - Strip whitespace.
@@ -50,7 +53,7 @@ class DeterministicVerifier(
     override fun verifyContracts() {
         val customSerializerNames = getNamesOfClassesImplementing(transactionClassLoader, SerializationCustomSerializer::class.java)
         val serializationWhitelistNames = getSerializationWhitelistNames(transactionClassLoader)
-        val result = IsolatedTask(ltx.id.toString(), sandboxConfiguration).run<Any>(Function { classLoader ->
+        val result = IsolatedTask(ltx.id.toString(), sandboxContext).run<Any>(Function { classLoader ->
             (classLoader.parent as? SandboxClassLoader)?.apply {
                 /**
                  * We don't need to add either Java APIs or Corda's own classes
@@ -122,7 +125,7 @@ class DeterministicVerifier(
                         ltx.id, allocations, invocations, jumps, throws)
         }
 
-        result.exception?.run {
+        result.exception?.apply {
             val sandboxEx = SandboxException(
                 Message.getMessageFromException(this),
                 result.identifier,
@@ -133,6 +136,11 @@ class DeterministicVerifier(
             logger.error("Error validating transaction ${ltx.id}.", sandboxEx)
             throw DeterministicVerificationException(ltx.id, sandboxEx.message ?: "", sandboxEx)
         }
+    }
+
+    override fun close() {
+        logger.info("RETURNING SANDBOX CONTEXT TO QUEUE")
+        contexts.offer(sandboxContext)
     }
 }
 
