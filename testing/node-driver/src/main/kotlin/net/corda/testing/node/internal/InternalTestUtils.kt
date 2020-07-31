@@ -262,12 +262,12 @@ class ListenProcessDeathException(hostAndPort: NetworkHostAndPort, listenProcess
         CordaException("The process that was expected to listen on $hostAndPort has died with status: ${listenProcess.exitValue()}")
 
 class NodeListenProcessDeathException(hostAndPort: NetworkHostAndPort, listenProcess: Process, val causeFromStdError: String) :
-    CordaException(
-        """
+        CordaException(
+                """
         The node that was expected to start with $hostAndPort has died with status: ${listenProcess.exitValue()}
         Error that caused the process to fail -> $causeFromStdError
         """.trimIndent()
-    )
+        )
 
 fun <T> StartedNodeServices.startFlow(logic: FlowLogic<T>): FlowStateMachine<T> = startFlow(logic, newContext()).getOrThrow()
 
@@ -315,7 +315,7 @@ fun setDriverSerialization(classLoader: ClassLoader?): AutoCloseable? {
 fun setDriverSerialization(): AutoCloseable? = setDriverSerialization(null)
 
 private class DriverSerializationEnvironment(classLoader: ClassLoader?)
-                  : SerializationEnvironment by createTestSerializationEnv(classLoader), AutoCloseable {
+    : SerializationEnvironment by createTestSerializationEnv(classLoader), AutoCloseable {
     fun enable() = apply { _driverSerializationEnv.set(this) }
     override fun close() {
         _driverSerializationEnv.set(null)
