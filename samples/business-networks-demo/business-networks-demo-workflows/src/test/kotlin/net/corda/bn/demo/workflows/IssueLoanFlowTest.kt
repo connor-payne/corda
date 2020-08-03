@@ -117,6 +117,7 @@ class IssueLoanFlowTest : LoanFlowTest(numberOfLenders = 1, numberOfBorrowers = 
 
             data
         }
+        assertTrue(command.value is LoanContract.Commands.Issue)
 
         // also check ledgers
         listOf(lender, borrower).forEach { node ->

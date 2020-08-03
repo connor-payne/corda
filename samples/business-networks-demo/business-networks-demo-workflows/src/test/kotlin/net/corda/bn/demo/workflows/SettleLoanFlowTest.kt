@@ -66,7 +66,7 @@ class SettleLoanFlowTest : LoanFlowTest(numberOfLenders = 1, numberOfBorrowers =
 
         // first partially settle loan
         val loan = issueLoan(lender, borrower, 10)
-        val (settledLoan) = runSettleLoanFlow(borrower, loan.linearId, 5).run {
+        val (settledLoan, command) = runSettleLoanFlow(borrower, loan.linearId, 5).run {
             assertEquals(1, tx.inputs.size)
             verifyRequiredSignatures()
             tx.outputs.single() to tx.commands.single()
@@ -82,6 +82,7 @@ class SettleLoanFlowTest : LoanFlowTest(numberOfLenders = 1, numberOfBorrowers =
 
             data
         }
+        assertTrue(command.value is LoanContract.Commands.Settle)
 
         // also check ledgers
         listOf(lender, borrower).forEach { node ->
@@ -96,6 +97,7 @@ class SettleLoanFlowTest : LoanFlowTest(numberOfLenders = 1, numberOfBorrowers =
             assertEquals(1, tx.inputs.size)
             verifyRequiredSignatures()
             assertTrue(tx.outputs.isEmpty())
+            assertTrue(tx.commands.single().value is LoanContract.Commands.Exit)
         }
     }
 }
